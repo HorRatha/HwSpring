@@ -3,6 +3,8 @@ package com.example.datajpa.service.impl;
 import com.example.datajpa.domain.Customer;
 import com.example.datajpa.dto.CustomerRequest;
 import com.example.datajpa.dto.CustomerResponse;
+import com.example.datajpa.dto.UpdateCustomerRequest;
+import com.example.datajpa.mapper.CustomerMapper;
 import com.example.datajpa.repository.CustomerRepository;
 import com.example.datajpa.service.CustomerService;
 
@@ -21,17 +23,27 @@ import java.util.List;
 public class CustomerServiceImpl implements CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final CustomerMapper customerMapper;
+
+    @Override
+    public CustomerResponse updateByPhoneNumber(String phoneNumber, UpdateCustomerRequest updateCustomerRequest) {
+        return null;
+    }
+
+    @Override
+    public CustomerResponse findByPhoneNumber(String phoneNumber) {
+        return customerRepository
+                .findByPhoneNumber(phoneNumber)
+                .map(customerMapper::mapCustomerToCustomerResponse)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Phone number not found"));
+    }
+
 
     @Override
     public List<CustomerResponse> findAll() {
         List<Customer> customers = customerRepository.findAll();
         return customers.stream()
-                .map(customer -> CustomerResponse.builder()
-                        .fullName(customer.getFullName())
-                        .gender(customer.getGender())
-                        .email(customer.getEmail())
-                        .build()
-                )
+                .map(customerMapper::mapCustomerToCustomerResponse)
                 .toList();
     }
 
@@ -40,15 +52,10 @@ public class CustomerServiceImpl implements CustomerService {
         if (customerRepository.existsByEmail(createCustomerRequest.email()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
 
-        if (customerRepository.existsByPhoneNumber(createCustomerRequest.phoneNumber()))
+        if (customerRepository.existsByPhoneNumber(createCustomerRequest.phone()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number already exists");
 
-        Customer customer = new Customer();
-        customer.setFullName(createCustomerRequest.fullName());
-        customer.setGender(createCustomerRequest.gender());
-        customer.setEmail(createCustomerRequest.email());
-        customer.setPhoneNumber(createCustomerRequest.phoneNumber());
-        customer.setRemark(createCustomerRequest.remark());
+        Customer customer = customerMapper.fromCreateCustomerRequest(createCustomerRequest);
         customer.setIsDeleted(false);
 
         log.info("Customer ID before save: {}", customer.getId());
@@ -56,11 +63,6 @@ public class CustomerServiceImpl implements CustomerService {
         log.info("Customer ID after save: {}", customer.getId());
 
 
-
-        return CustomerResponse.builder()
-                .fullName(customer.getFullName())
-                .gender(customer.getGender())
-                .email(customer.getEmail())
-                .build();
+        return customerMapper.mapCustomerToCustomerResponse(customer);
     }
 }
